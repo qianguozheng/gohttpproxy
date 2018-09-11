@@ -3,7 +3,7 @@ package gohttpproxy
 import (
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	stdLog "log"
 	"net"
 	"net/http"
@@ -100,18 +100,29 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("error:", err.Error())
 		return
 	}
+
+	// prepare http response header
 	for k, v := range resp.Header {
 		for _, vv := range v {
 			w.Header().Add(k, vv)
 		}
 	}
-	w.WriteHeader(resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
-	if err != nil {
-		fmt.Println("Response failed ", err.Error())
+
+	for _, c := range resp.Cookies() {
+		w.Header().Add("Set-Cookie", c.Raw)
+		fmt.Println("Set-Cookie:", c.Raw)
 	}
-	w.Write(body)
+
+	w.WriteHeader(resp.StatusCode)
+	// body, err := ioutil.ReadAll(resp.Body)
+	// defer resp.Body.Close()
+	//
+	// if err != nil {
+	// 	fmt.Println("Response failed ", err.Error())
+	// }
+	//
+	// w.Write(body)
+	io.Copy(w, resp.Body)
 }
 
 type tcpKeepAliveListener struct {
